@@ -3,7 +3,7 @@ from github import Github
 from tkinter import messagebox
 
 # Replace 'your_personal_access_token' with your actual token
-g = Github("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")
+g = Github("")
 
 def list_repositories_ui():
     """Open the UI for listing repositories."""
