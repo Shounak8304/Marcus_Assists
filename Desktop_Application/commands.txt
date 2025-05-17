@@ -1,0 +1,11 @@
+read pdf ---- >
+summarize  pdf----->
+time function--->
+typing ----------->
+want to push repo --------> navigate
+want to convert file ---------> navigate
+calender in server ---------> calender.py
+select all copy cut paste undo redo save open task manage open settings open cmd prompt---------> check when server on other device
+image issues after exe ------->
+few commands need to be typed need to e guied can type on server only voice. --------------->
+login to be sorted for exe and data to be matched with all files. ----------------------->

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARK</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+    
+        body {
+            background-image: url('wal2_app[1].jpg'); 
+            background-size: cover;
+            background-position: center; 
+            background-repeat: no-repeat;
+            color: #fff;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+    
+        header {
+            background: rgba(30, 60, 114, 0.9);
+            color: white;
+            padding: 1rem 0;
+            text-align: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            flex: 1;
+        }
+    
+        .description {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+    
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+    
+        .card {
+            background: #ffffff;
+            color: #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+    
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+    
+        .card-title {
+            background: #2a5298;
+            color: white;
+            padding: 1rem;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+    
+        .card-content {
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .card-content button {
+            background-color: #2a5298;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .card-content button:hover {
+            background-color: #1d3d73;
+        }
+
+        .card-content button.active {
+            background-color: red;
+        }
+    
+        footer {
+            background: rgba(30, 60, 114, 0.9);
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+            margin-top: 2rem;
+            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+        }
+    
+        footer a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        MARK ASSISTANCE
+    </header>
+
+    <div class="container">
+        <div class="description">
+            <p>At MARK, we strive to deliver the best solutions for your needs. Our cutting-edge technology and user-friendly interfaces ensure a seamless experience across platforms. Explore our offerings below:</p>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <div class="card-title">Voice Module</div>
+                <div class="card-content">
+                    <img src="Raspberry_Pi_logo.svg" alt="Voice Module" style="width: 100%; border-radius: 8px; margin-bottom: 1rem;">
+                    <button id="voice-btn">Explore Voice Module</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Desktop</div>
+                <div class="card-content">
+                    <img src="desk_logo.jpg" alt="Desktop" style="width: 100%; border-radius: 8px; margin-bottom: 1rem;">
+                    <button id="desktop-btn">Desktop Not Connected</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Android</div>
+                <div class="card-content">
+                    <img src="android_logo1.jpeg" alt="Android" style="width: 100%; border-radius: 8px; margin-bottom: 1rem;">
+                    <button id="android-btn">Android Not Connected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024. All rights reserved | <a href="#">About Us</a></p>
+    </footer>
+
+    <script>
+        const desktopBtn = document.getElementById("desktop-btn");
+        const androidBtn = document.getElementById("android-btn");
+    
+        const socket = new WebSocket("ws://192.168.0.109:9001");
+    
+        socket.onopen = () => {
+            console.log("✅ Connected to WebSocket server");
+        };
+    
+        socket.onmessage = (event) => {
+            console.log("📩 Message received: " + event.data);
+    
+            switch(event.data) {
+                case "android_connected":
+                    androidBtn.classList.add("active"); // Turn button red
+                    androidBtn.textContent = "Android Connected";
+                    break;
+    
+                case "desktop_connected":
+                    desktopBtn.classList.add("active");
+                    desktopBtn.textContent = "Desktop Connected";
+                    break;
+    
+                case "android_disconnected":
+                    androidBtn.classList.remove("active"); // Turn button blue
+                    androidBtn.textContent = "Android Disconnected";
+                    break;
+    
+                case "desktop_disconnected":
+                    desktopBtn.classList.remove("active");
+                    desktopBtn.textContent = "Desktop Disconnected";
+                    break;
+    
+                default:
+                    console.log("ℹ️ Unrecognized message.");
+            }
+        };
+    
+        socket.onclose = () => {
+            console.log("❌ WebSocket connection closed.");
+        };
+    
+        socket.onerror = (error) => {
+            console.log("⚠️ WebSocket Error: ", error);
+        };
+    </script>
+    
+</body>
+</html>

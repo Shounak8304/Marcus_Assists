@@ -1,0 +1,302 @@
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <map>
+
+// Wi-Fi credentials
+const char* ssid = "Loukik's S21fe 5g";
+const char* password = "gval1180";
+
+// Server object
+AsyncWebServer server(80);
+
+// LED pin
+const int ledPin = 2;
+
+// Store connected clients and their statuses
+std::map<String, String> connectedClients;
+String raspiStatus = "Not Connected";  // To store the status of the Raspberry Pi
+String desktopStatus = "Not Connected";  // To store the status of the Desktop app
+String mobileStatus = "Not Connected";   // To store the status of the Mobile app
+String lastCommand = "No commands received";  // Store the last received command
+String raspiIP = "";  // Store Raspberry Pi's IP address after first connection
+String desktopIP = "";  // Store Desktop app IP
+String mobileIP = "";  // Store Mobile app IP
+
+// Serve the HTML page with Raspberry Pi, Desktop, and Mobile statuses and connected clients
+void serveHTMLPage(AsyncWebServerRequest *request) {
+    String html = R"rawliteral(
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>ESP32 HTTP Server</title>
+      <meta http-equiv="refresh" content="5">  <!-- Automatically refresh the page every 5 seconds -->
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #000;
+          color: #fff;
+          text-align: center;
+        }
+        h1 {
+          color: #00ff00;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>ESP32 Server</h1>
+      <p>Connected clients:</p>
+      <ul>
+    )rawliteral";
+
+    // Append connected clients to the HTML, only if they have valid labels
+    for (auto const& client : connectedClients) {
+        if (client.second != "") {
+            html += "<li>" + client.first + " - " + client.second + "</li>";
+        }
+    }
+
+    html += R"rawliteral(
+      </ul>
+      <p>Raspberry Pi Status: )rawliteral" + raspiStatus + R"rawliteral(</p>  <!-- Display Raspberry Pi Status -->
+      <p>Desktop Status: )rawliteral" + desktopStatus + R"rawliteral(</p>  <!-- Display Desktop Status -->
+      <p>Mobile Status: )rawliteral" + mobileStatus + R"rawliteral(</p>  <!-- Display Mobile Status -->
+      <p>Last Command from Raspberry Pi: )rawliteral" + lastCommand + R"rawliteral(</p> <!-- Display Last Command -->
+    </body>
+    </html>
+    )rawliteral";
+
+    request->send(200, "text/html", html);
+}
+
+// Function to handle Raspberry Pi connection and commands
+void handleRaspi(AsyncWebServerRequest *request) {
+    String clientIP = request->client()->remoteIP().toString();  // Get the client's IP address
+
+    // Check if Raspberry Pi is reconnecting
+    if (request->hasParam("device")) {
+        String deviceType = request->getParam("device")->value();
+        if (deviceType == "raspi") {
+            if (raspiIP != clientIP) {
+                raspiIP = clientIP;  // Update Raspberry Pi IP if it changed
+                connectedClients[clientIP] = "Raspberry Pi";
+                raspiStatus = "Connected";
+                Serial.printf("Raspberry Pi connected: %s\n", clientIP.c_str());
+            }
+            request->send(200, "text/plain", "Raspberry Pi connection established");
+            return;
+        }
+    }
+
+    // Handle command if already connected
+    if (raspiIP == clientIP) {
+        if (request->hasParam("cmd")) {
+            String command = request->getParam("cmd")->value();  // Get the command
+            Serial.printf("Received command from Raspberry Pi: %s\n", command.c_str());
+            lastCommand = command;  // Store the last received command
+            request->send(200, "text/plain", "Command received: " + command);
+        } else {
+            request->send(200, "text/plain", "No command provided");
+        }
+    } else {
+        connectedClients[clientIP] = "Unknown Device";
+        request->send(200, "text/plain", "Unknown device connected");
+    }
+}
+
+// Function to handle Desktop app connection
+void handleDesktop(AsyncWebServerRequest *request) {
+    String clientIP = request->client()->remoteIP().toString();  // Get the client's IP address
+
+    // Check if Desktop is reconnecting
+    if (desktopIP != clientIP) {
+        desktopIP = clientIP;  // Update Desktop IP if it changed
+        connectedClients[clientIP] = "Desktop App";
+        desktopStatus = "Connected";
+        Serial.printf("Desktop connected: %s\n", clientIP.c_str());
+    }
+
+    request->send(200, "text/plain", "Desktop connection established");
+}
+
+// Function to handle Mobile app connection
+void handleMobile(AsyncWebServerRequest *request) {
+    String clientIP = request->client()->remoteIP().toString();  // Get the client's IP address
+
+    // Check if Mobile is reconnecting
+    if (mobileIP != clientIP) {
+        mobileIP = clientIP;  // Update Mobile IP if it changed
+        connectedClients[clientIP] = "Mobile App";
+        mobileStatus = "Connected";
+        Serial.printf("Mobile connected: %s\n", clientIP.c_str());
+    }
+
+    request->send(200, "text/plain", "Mobile connection established");
+}
+
+// Ensure Wi-Fi stays connected
+void ensureWiFiConnection() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Lost WiFi connection. Reconnecting...");
+        WiFi.begin(ssid, password);
+        while (WiFi.status() != WL_CONNECTED) {
+            delay(1000);
+            Serial.println("Reconnecting to WiFi...");
+        }
+        Serial.println("Reconnected to WiFi.");
+    }
+}
+
+void setup() {
+    Serial.begin(9600);
+
+    // Set up the LED pin
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, LOW);  // Turn off LED initially
+
+    // Connect to Wi-Fi
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi...");
+    }
+    Serial.println("Connected to WiFi");
+    Serial.print("ESP32 IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    // Turn on the LED to indicate successful Wi-Fi connection
+    digitalWrite(ledPin, HIGH);
+
+    // Handle Raspberry Pi connection and commands
+    server.on("/raspi", HTTP_GET, handleRaspi);
+
+    // Handle Desktop app connection
+    server.on("/desktop", HTTP_GET, handleDesktop);
+
+    // Handle Mobile app connection
+    server.on("/mobile", HTTP_GET, handleMobile);
+
+    // Serve the main HTML page
+    server.on("/", HTTP_GET, serveHTMLPage);
+
+    // Start the server
+    server.begin();
+}
+
+void loop() {
+    ensureWiFiConnection();  // Ensure Wi-Fi stays connected
+}
+
+
+************************************************************************************
+
+import requests
+import time
+import speech_recognition as sr
+
+# ESP32 server IP address (replace with your ESP32's IP)
+esp32_ip = "http://192.168.10.20"  # Replace with actual ESP32 IP address
+
+# Function to recognize speech and return as text
+def recognize_voice():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening for voice command...")
+        recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(source)
+    try:
+        command = recognizer.recognize_google(audio)
+        print(f"Recognized command: {command}")
+        return command
+    except sr.UnknownValueError:
+        print("Sorry, I couldn't understand the audio.")
+    except sr.RequestError:
+        print("Could not request results from Google Speech Recognition service.")
+    return None
+
+# Function to connect to ESP32 with retry mechanism
+def connect_to_esp32(retries=5):
+    for i in range(retries):
+        try:
+            response = requests.get(f"{esp32_ip}/raspi?device=raspi")
+            if response.status_code == 200:
+                print(f"Connection response: {response.text}")
+                if "connection established" in response.text.lower():
+                    print("Successfully connected to ESP32.")
+                    return True  # Connection successful
+        except requests.exceptions.RequestException as e:
+            print(f"Error connecting to ESP32: {e}")
+        print(f"Retrying ({i+1}/{retries})...")
+        time.sleep(2)
+    return False
+
+# Function to send commands to ESP32
+def send_command_to_esp32(command):
+    try:
+        response = requests.get(f"{esp32_ip}/raspi?cmd={command}", timeout=5)
+        if response.status_code == 200:
+            print(f"ESP32 response to command: {response.text}")
+        else:
+            print(f"Failed to send command: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending command to ESP32: {e}")
+
+# Main function to establish connection and listen for commands
+def main():
+    if connect_to_esp32():
+        print("Connected to ESP32. Listening for commands...")
+        while True:
+            command = recognize_voice()  # Get voice command
+            if command:
+                send_command_to_esp32(command)  # Send recognized command to ESP32
+            time.sleep(2)  # Delay before the next command
+    else:
+        print("Failed to connect to ESP32. Exiting.")
+
+if __name__ == "__main__":
+    main()
+
+
+*******************************************************************************************
+
+import requests
+import time
+import speech_recognition as sr
+
+# ESP32 server IP address (replace with your ESP32's IP)
+esp32_ip = "http://192.168.10.20"  # Replace with actual ESP32 IP address
+
+def connect_to_esp32(retries=5):
+    for i in range(retries):
+        try:
+            # Send a GET request to identify the device as "desktop"
+            response = requests.get(f"{esp32_ip}/desktop?device=desktop")
+            if response.status_code == 200:
+                print(f"Connection response: {response.text}")
+                if "connection established" in response.text.lower():
+                    print("Successfully connected to ESP32 as Desktop.")
+                    return True  # Connection successful
+        except requests.exceptions.RequestException as e:
+            print(f"Error connecting to ESP32: {e}")
+        
+        print(f"Retrying ({i+1}/{retries})...")
+        time.sleep(2)  # Wait for 2 seconds before retrying
+    return False
+
+def disconnect_from_esp32():
+    try:
+        # Send a GET request to notify the ESP32 of disconnection
+        response = requests.get(f"{esp32_ip}/desktop?device=desktop&cmd=disconnecting")
+        if response.status_code == 200:
+            print(f"Disconnection response: {response.text}")
+        else:
+            print(f"Failed to send disconnection command: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending disconnection command to ESP32: {e}")
+
+
+if __name__ == "__main__":
+    while True:
+        connect_to_esp32()
+        time.sleep(5) 
+
+*************************************************************************************************

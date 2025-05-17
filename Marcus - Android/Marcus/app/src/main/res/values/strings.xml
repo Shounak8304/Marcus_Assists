@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Marcus</string>
+    <string name="accessibility_service_description">Accessibility service for sending WhatsApp messages automatically</string>
+</resources>
